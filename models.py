@@ -1,7 +1,9 @@
 import sqlite3
 from typing import List, Optional
 from pydantic import BaseModel
+import os
 
+os.makedirs("data", exist_ok=True)
 DB_PATH = "data/gst_invoice.db"
 
 def init_db():
@@ -60,3 +62,4 @@ class InvoiceModel(BaseModel):
 class ProductGSTModel(BaseModel):
     keyword: str
     gst_rate: float
+
