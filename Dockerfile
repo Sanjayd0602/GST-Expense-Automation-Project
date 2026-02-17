@@ -11,7 +11,6 @@ WORKDIR /code
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     poppler-utils \
-    libgl1-mesa-glx \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the requirements file into the container
@@ -34,5 +33,6 @@ EXPOSE 8000
 # Command to run the application
 # We use the generic "app.main:app" assuming main.py is in app/
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
 
 
