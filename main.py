@@ -25,6 +25,9 @@ else:
 app = FastAPI(title="GST Invoice Processor")
 
 # Mount Static & Templates
+os.makedirs("app/static", exist_ok=True)
+os.makedirs("app/templates", exist_ok=True)
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
@@ -162,4 +165,5 @@ async def upload_dataset(file: UploadFile = File(...)):
     conn.close()
     
     return RedirectResponse(url="/dashboard", status_code=303)
+
 
