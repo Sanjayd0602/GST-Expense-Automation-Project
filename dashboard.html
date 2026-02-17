@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+
+    <!-- Upload Section -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Invoice Upload -->
+        <div class="bg-white overflow-hidden shadow rounded-lg p-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Upload Invoice</h3>
+            <form action="/upload_invoice" method="post" enctype="multipart/form-data" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Select Image/PDF</label>
+                    <input type="file" name="file" required
+                        class="mt-1 block w-full text-sm text-gray-500 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-2">
+                </div>
+                <button type="submit"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none">
+                    Process Invoice
+                </button>
+            </form>
+        </div>
+
+        <!-- Dataset Upload -->
+        <div class="bg-white overflow-hidden shadow rounded-lg p-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Update Product GST Dataset</h3>
+            <p class="text-sm text-gray-500 mb-4">Upload a CSV with columns: <code>keyword, gst_rate</code></p>
+            <form action="/upload_dataset" method="post" enctype="multipart/form-data" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Select CSV</label>
+                    <input type="file" name="file" accept=".csv" required
+                        class="mt-1 block w-full text-sm text-gray-500 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-2">
+                </div>
+                <button type="submit"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none">
+                    Update Dataset
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Analytics Section -->
+    <div class="bg-white overflow-hidden shadow rounded-lg mb-8">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Tax Analytics</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="relative h-64">
+                    <canvas id="taxChart"></canvas>
+                </div>
+                <div class="relative h-64">
+                    <canvas id="productChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="flex flex-col">
+        <div class="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                <div class="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Date</th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Filename</th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Extracted Amount</th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Calculated Tax</th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for invoice in invoices %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ invoice.upload_date }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{
+                                    invoice.filename }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ invoice.total_amount }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-bold">{{
+                                    invoice.tax_amount }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <span
+                                        class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                        {{ invoice.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        console.log("Initializing Charts...");
+
+        // 1. Get Data From Jinja2
+        const rawInvoices = [
+            {% for invoice in invoices %}
+        {
+            date: "{{ invoice.upload_date }}",
+            amount: {{ invoice.total_amount if invoice.total_amount is not none else 0 }},
+        tax: {{ invoice.tax_amount if invoice.tax_amount is not none else 0 }}
+        },
+        {% endfor %}
+    ];
+
+    console.log("Raw Data:", rawInvoices);
+
+    if (rawInvoices.length === 0) {
+        console.warn("No data to chart.");
+        return;
+    }
+
+    // 2. Process Labels and Values
+    const labels = rawInvoices.map(i => {
+        // Attempt to split date if it contains space (YYYY-MM-DD HH:MM:SS)
+        if (i.date && i.date.includes(' ')) {
+            return i.date.split(' ')[0];
+        }
+        return i.date;
+    });
+
+    const taxData = rawInvoices.map(i => i.tax);
+    const amountData = rawInvoices.map(i => i.amount);
+
+    console.log("Labels:", labels);
+    console.log("Tax Data:", taxData);
+
+    // 3. Render Tax Chart
+    const taxCanvas = document.getElementById('taxChart');
+    if (taxCanvas) {
+        new Chart(taxCanvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Tax Calculated',
+                    data: taxData,
+                    backgroundColor: 'rgba(79, 70, 229, 0.5)',
+                    borderColor: 'rgba(79, 70, 229, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    } else {
+        console.error("Tax Canvas not found");
+    }
+
+    // 4. Render Product Chart (Total Amount)
+    const profCanvas = document.getElementById('productChart');
+    if (profCanvas) {
+        new Chart(profCanvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Total Amount',
+                    data: amountData,
+                    borderColor: 'rgba(16, 185, 129, 1)',
+                    tension: 0.1,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    } else {
+        console.error("Product Canvas not found");
+    }
+});
+</script>
+{% endblock %}
