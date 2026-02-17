@@ -21,7 +21,7 @@ COPY ./requirements.txt /code/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 # Copy the rest of the application code
-COPY ./app /code/app
+COPY . /code/app
 # Also copy data or other necessary folders if they exist and are needed at runtime
 COPY ./sample_product_gst.csv /code/sample_product_gst.csv
 
@@ -34,4 +34,5 @@ EXPOSE 8000
 # Command to run the application
 # We use the generic "app.main:app" assuming main.py is in app/
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
 
